@@ -44,6 +44,7 @@ rich==12.6.0
 scikit-learn
 scipy==1.9.3
 spacy==3.0.6
+-e git://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.6/en_core_web_sm-3.0.6.tar.gz#egg=en_core_web_sm==3.0.6
 semver==2.13.0
 six==1.16.0
 smmap==5.0.0
