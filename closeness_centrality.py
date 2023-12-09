@@ -8,6 +8,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
+nltk.download('punkt')
 
 # Function to summarize text
 def summarize_text(text):
