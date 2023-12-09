@@ -73,7 +73,7 @@ def main():
 
     # Silhouette Score
     silhouette_avg = silhouette_score(Y_sklearn, prediction)
-    st.write(f"Silhouette Score(n=2): {silhouette_avg, Label}")
+    st.write(f"Silhouette Score(n=2): {silhouette_avg}")
 
     # # Davies-Bouldin Index
     # db_score = davies_bouldin_score(Y_sklearn, prediction)
