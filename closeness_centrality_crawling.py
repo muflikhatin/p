@@ -1,5 +1,10 @@
+import streamlit as st
 import time
 import random
+import csv
+import pandas as pd
+
+# ... (fungsi scrape_detik dan lainnya)
 
 # Fungsi untuk menambahkan hasil scraping ke dalam file CSV
 def add_to_csv(results):
@@ -34,3 +39,6 @@ def main():
         
         updated_df = pd.read_csv('detik_results.csv', encoding='utf-8')
         st.write(updated_df[['headline', 'date', 'content']])
+
+if __name__ == "__main__":
+    main()
