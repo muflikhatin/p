@@ -23,7 +23,7 @@ def main():
 
     # Perform K-means clustering
     n_clusters = 2
-    kmeans = KMeans(n_clusters=n_clusters, max_iter=400, algorithm='auto', n_init=10)
+    kmeans = KMeans(n_clusters=n_clusters, max_iter=400, algorithm='lloyd', n_init=10)
     fitted = kmeans.fit(Y_sklearn)
     prediction = kmeans.predict(Y_sklearn)
 
