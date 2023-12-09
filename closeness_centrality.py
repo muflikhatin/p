@@ -11,9 +11,7 @@ from PIL import Image
 
 # Function to summarize text
 def summarize_text(text):
-    nlp = spacy.load("en_core_web_sm")
-    doc = nlp(text)
-    sentences = [sentence.text for sentence in doc.sents]
+    sentences = nltk.sent_tokenize(text)
     summary = " ".join(sentences[:100])  # Take the first 100 sentences as summary
     return summary
 
