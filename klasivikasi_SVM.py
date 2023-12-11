@@ -77,7 +77,7 @@ def main():
     @st.cache()
     def preprocess_data_cached(df):
         return preprocess_data(df)
-    def select_features(data, labels, num_features=1000):
+    def select_features(data, labels, num_features=2000):
         vectorizer = TfidfVectorizer()
         features = vectorizer.fit_transform(data)
         
@@ -134,7 +134,7 @@ def main():
         # Ensure that the text vector has the same dimensions as expected by the model
         if text_vector.shape[1] != 2000:
             # Perform feature selection or reduction to ensure the vector has 1000 features
-            selector = SelectKBest(mutual_info_classif, k=1000)
+            selector = SelectKBest(mutual_info_classif, k=2000)
             selected_features = selector.fit_transform(text_vector, [0])  # Assuming 0 as the label for the processed_text
             text_vector = selected_features
         
