@@ -28,14 +28,14 @@ matplotlib
 more-itertools==9.0.0
 networkx==2.6.3
 nltk==3.6.5
-numpy==1.23.4
+numpy==1.23.5  # Updated to resolve the conflict
 packaging==21.3
 plotly==5.11.0
 plotly.express==0.4.1
 pandas==1.5.1
 Pillow==9.3.0
 protobuf==3.20.3
-pyarrow==10.0.0
+pyarrow==7.0.0  # Downgraded to resolve the conflict
 pydeck==0.8.0
 Pygments==2.13.0
 Pympler==1.0.1
