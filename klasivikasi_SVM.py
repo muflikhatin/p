@@ -99,7 +99,7 @@ def main():
 
 
     # Streamlit App
-    st.title("Analisis Sentimen dan Pemodelan")
+    st.title("Klasifikasi dan Pemodelan")
     st.write(" ")
     st.header("Dataset Sebelum Dilakukan Preprocessing")
     st.dataframe(df.dropna(subset=['category']))  # Display DataFrame after dropping NaN values in 'category' column
