@@ -9,12 +9,10 @@ from sklearn.utils.validation import joblib
 
 def main():
     st.title("Halaman Informasi")
-    st.header("Topic Modelling")
+    st.header("KLASIFIKASI BERITA")
     st.container()
     st.write("""
-            * Topic Modelling adalah suatu metode pada analisa penambangan teks untuk melakukan penemuan data-data teks yang tersembunyi dan menemukan hubungan antara teks yang satu dengan lainnya dari suatu corpus
-            * mengelompokkan data teks yang didasarkan pada topik tertentu
-            * Ide-tema-pokok bahasan utama dalam suatu kumpulan teks
+Klasifikasi Berita adalah proses pengelompokan atau kategorisasi berita ke dalam kelas-kelas tertentu berdasarkan kesamaan karakteristik, topik, atau tema. Tujuannya adalah untuk memudahkan pencarian, pengorganisasian, dan analisis berita.
             """)
 
     st.header("Informasi Data")
