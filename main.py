@@ -9,7 +9,7 @@ from sklearn.utils.validation import joblib
 
 def main():
     st.title("Halaman Informasi")
-    st.header("KLASIFIKASI BERITA")
+    st.header("Klasifikasi Berita")
     st.container()
     st.write("""
 Klasifikasi Berita adalah proses pengelompokan atau kategorisasi berita ke dalam kelas-kelas tertentu berdasarkan kesamaan karakteristik, topik, atau tema. Tujuannya adalah untuk memudahkan pencarian, pengorganisasian, dan analisis berita.
@@ -19,13 +19,13 @@ Klasifikasi Berita adalah proses pengelompokan atau kategorisasi berita ke dalam
 
     # Crowling data
     st.write("""
-    Data diperoleh dari hasil crowling data dari website https://pta.trunojoyo.ac.id
-    Data yang diambil berasal dari prodi Teknik Informatika, berikut variabel/fitur yang dihasilkan dari proses crowling data yaitu:
+    Data diperoleh dari hasil crowling data dari website https://www.kompas.com/
+    Data yang diambil berasal dari porta berita yang dihasilkan dari proses crawling data yaitu:
+    * Kategori
     * Judul
-    * Penulis
-    * Dosen pembimbing I
-    * Dosen pembimbing II
-    * Abstrak
+    * Tanggal
+    * Konten
+    * Link
     """)
 
 
