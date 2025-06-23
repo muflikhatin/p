@@ -7,7 +7,7 @@ import pandas as pd
 
 def main():
     st.markdown("")
-    st.title("Tugas 1 Scrape Website https://www.kompas.com/ with Beautiful Soap")
+    st.title("Crawling Website https://www.kompas.com/ with Beautiful Soap")
     st.write("""
         Crawling data adalah proses otomatis untuk mengumpulkan dan mengindeks data dari berbagai sumber seperti situs web, database, atau dokumen.
         Crawling data dilakukan pada website https://www.kompas.com/
