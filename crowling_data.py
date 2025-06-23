@@ -7,10 +7,10 @@ import pandas as pd
 
 def main():
     st.markdown("")
-    st.title("Tugas 1 Scrape Website pta.trunojoyo.ac.id with Beautiful Soap")
+    st.title("Tugas 1 Scrape Website https://www.kompas.com/ with Beautiful Soap")
     st.write("""
-        Crowling data adalah proses otomatis untuk mengumpulkan dan mengindeks data dari berbagai sumber seperti situs web, database, atau dokumen.
-        Crowling data dilakukan pada website https://pta.trunojoyo.ac.id.
+        Crawling data adalah proses otomatis untuk mengumpulkan dan mengindeks data dari berbagai sumber seperti situs web, database, atau dokumen.
+        Crawling data dilakukan pada website https://www.kompas.com/
         """)
 
     def run_crawling_process():
@@ -19,9 +19,9 @@ def main():
             page = 1
 
             # Membuat file CSV untuk menulis hasil scraping
-            with open('hasil_crowling.csv', 'w', newline='', encoding='utf-8') as csvfile:
-                fieldnames = ['Judul', 'Penulis', 'Dosen Pembimbing I',
-                              'Dosen Pembimbing II', 'Abstrak']
+            with open('df.csv', 'w', newline='', encoding='utf-8') as csvfile:
+                fieldnames = ['Kategori', 'Judul', 'Tanggal',
+                              'Junlah_Kata', 'Konten', 'Link']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
 
