@@ -9,23 +9,25 @@ from sklearn.utils.validation import joblib
 
 def main():
     st.title("Halaman Informasi")
-    st.header("Klasifikasi Berita")
+    st.header("Topic Modelling")
     st.container()
     st.write("""
-Klasifikasi Berita adalah proses pengelompokan atau kategorisasi berita ke dalam kelas-kelas tertentu berdasarkan kesamaan karakteristik, topik, atau tema. Tujuannya adalah untuk memudahkan pencarian, pengorganisasian, dan analisis berita.
+            * Topic Modelling adalah suatu metode pada analisa penambangan teks untuk melakukan penemuan data-data teks yang tersembunyi dan menemukan hubungan antara teks yang satu dengan lainnya dari suatu corpus
+            * mengelompokkan data teks yang didasarkan pada topik tertentu
+            * Ide-tema-pokok bahasan utama dalam suatu kumpulan teks
             """)
 
     st.header("Informasi Data")
 
     # Crowling data
     st.write("""
-    Data diperoleh dari hasil crowling data dari website https://www.kompas.com/
-    Data yang diambil berasal dari porta berita yang dihasilkan dari proses crawling data yaitu:
-    * Kategori
+    Data diperoleh dari hasil crowling data dari website https://pta.trunojoyo.ac.id
+    Data yang diambil berasal dari prodi Teknik Informatika, berikut variabel/fitur yang dihasilkan dari proses crowling data yaitu:
     * Judul
-    * Tanggal
-    * Konten
-    * Link
+    * Penulis
+    * Dosen pembimbing I
+    * Dosen pembimbing II
+    * Abstrak
     """)
 
 
