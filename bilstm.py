@@ -9,7 +9,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
-MODEL_PATH = "model_6epochs.h5"
+DEFAULT_MODEL_PATH = "model_10epochs.h5"  # Model default jika tidak ada upload
 TOKENIZER_PATH = "tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
@@ -17,7 +17,6 @@ def display_versions():
     """Display version information for troubleshooting"""
     st.write(f"TensorFlow: {tf.__version__}")
     try:
-        # Try both methods to get Keras version
         keras_version = getattr(tf.keras, '__version__', 
                               getattr(tf.keras, 'version', 
                                      "Built-in with TensorFlow"))
@@ -38,39 +37,57 @@ def load_tokenizer(path=TOKENIZER_PATH):
         st.error(f"Error loading tokenizer: {str(e)}")
     return None
 
-def load_model_with_fallback(model_path=MODEL_PATH):
-    """Attempt to load model with version compatibility fallbacks"""
+def load_uploaded_model(uploaded_file):
+    """Handle uploaded model file"""
     try:
+        # Simpan file upload ke temporary
+        model_path = "temp_uploaded_model.h5"
+        with open(model_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        # Load model
         model = tf.keras.models.load_model(model_path)
-        st.success("Model loaded successfully!")
+        os.remove(model_path)  # Hapus file temp setelah di-load
         return model
     except Exception as e:
-        st.error(f"Initial model loading failed: {str(e)}")
-        
-        with st.expander("Version Compatibility Solutions"):
-            st.markdown(f"""
-            ### Detected TensorFlow {tf.__version__} but model requires ~{RECOMMENDED_TF_VERSION}
-
-            1. **Recommended**: Create fresh environment:
-            ```bash
-            python -m venv tf_env
-            source tf_env/bin/activate  # Linux/Mac
-            .\\tf_env\\Scripts\\activate  # Windows
-            pip install tensorflow=={RECOMMENDED_TF_VERSION}
-            ```
-
-            2. **Model Conversion** (if you have original):
-            ```python
-            import tensorflow as tf
-            model = tf.keras.models.load_model('{model_path}')
-            model.save('converted_model.h5')
-            ```
-
-            3. **Last Resort**: Retrain model with current TF version
-            """)
-            display_versions()
-        
+        st.error(f"Error loading uploaded model: {str(e)}")
         return None
+
+def load_model_with_fallback():
+    """Attempt to load model with version compatibility fallbacks"""
+    # Section for model upload
+    st.subheader("Model Selection")
+    uploaded_file = st.file_uploader(
+        "Upload model (best_model_10epochs.h5)", 
+        type=["h5"],
+        accept_multiple_files=False
+    )
+    
+    if uploaded_file is not None:
+        # Jika ada file diupload
+        with st.spinner('Loading uploaded model...'):
+            model = load_uploaded_model(uploaded_file)
+            if model:
+                st.success("Custom model loaded successfully!")
+                return model
+    
+    # Jika tidak ada upload, gunakan model default
+    with st.spinner('Loading default model...'):
+        try:
+            model = tf.keras.models.load_model(DEFAULT_MODEL_PATH)
+            st.info("Using default model as fallback")
+            return model
+        except Exception as e:
+            st.error(f"Default model loading failed: {str(e)}")
+            with st.expander("Troubleshooting"):
+                st.markdown(f"""
+                ### Model Compatibility Issues
+                
+                1. **Upload Correct Model**: Ensure you upload a compatible Keras model (.h5)
+                2. **Version Matching**: Model trained with TF {RECOMMENDED_TF_VERSION} works best
+                3. **Model Structure**: Must match expected input/output format
+                """)
+            return None
 
 def preprocess_text(text, tokenizer):
     """Convert raw text to padded sequences"""
@@ -101,7 +118,7 @@ def bilstm_page():
     with st.expander("Environment Information", expanded=False):
         display_versions()
     
-    st.subheader("Model Configuration")
+    # Model loading section now handles uploads
     with st.spinner('Loading NLP resources...'):
         col1, col2 = st.columns(2)
         with col1:
