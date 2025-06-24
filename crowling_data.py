@@ -1,88 +1,180 @@
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
 import csv
+from bs4 import BeautifulSoup
+import requests
+from datetime import datetime, timedelta
 import pandas as pd
+import time
+import random
 
+# Set headers to mimic a browser visit
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.google.com/',
+    'DNT': '1'
+}
 
-def main():
-    st.markdown("")
-    st.title("Crawling Website https://www.kompas.com/ with Beautiful Soap")
-    st.write("""
-        Crawling data adalah proses otomatis untuk mengumpulkan dan mengindeks data dari berbagai sumber seperti situs web, database, atau dokumen.
-        Crawling data dilakukan pada website https://www.kompas.com/
-        """)
+def scrape_kompas(kategori, date):
+    url = f'https://indeks.kompas.com/?site={kategori.lower()}&date={date}'
+    try:
+        # Add random delay to avoid being blocked
+        time.sleep(random.uniform(1, 3))
+        
+        req = requests.get(url, headers=HEADERS, verify=False, timeout=10)
+        req.raise_for_status()
+        
+        # Check if the response contains a captcha or blocking page
+        if "akses diblokir" in req.text.lower() or "captcha" in req.text.lower():
+            st.warning(f"Akses diblokir untuk {url}. Silakan coba lagi nanti atau gunakan VPN.")
+            return []
+            
+        soup = BeautifulSoup(req.text, 'html.parser')
+        articles = soup.find_all('div', class_='articleItem')
+        scraped_articles = []
 
-    def run_crawling_process():
-        try:
-            prod = '10'
-            page = 1
+        for article in articles:
+            try:
+                # Link artikel
+                link = article.find('a', class_='article-link')['href']
 
-            # Membuat file CSV untuk menulis hasil scraping
-            with open('df.csv', 'w', newline='', encoding='utf-8') as csvfile:
-                fieldnames = ['Kategori', 'Judul', 'Tanggal',
-                              'Junlah_Kata', 'Konten', 'Link']
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
+                # Judul artikel
+                title = article.find('h2', class_='articleTitle').text.strip()
 
-                while True:
-                    base_url = 'https://pta.trunojoyo.ac.id/c_search/byprod/{}/{}'.format(
-                        prod, page)
-                    url = base_url
-                    req = requests.get(url)
-                    soup = BeautifulSoup(req.text, 'html.parser')
-                    items = soup.find_all('li', attrs={'data-id': 'id-1'})
+                # Kategori
+                category = article.find('div', class_='articlePost-subtitle').text.strip()
 
-                    if not items:
-                        # Jika tidak ada item di halaman saat ini, keluar dari loop
-                        break
+                # Tanggal
+                tanggal = article.find('div', class_='articlePost-date').text.strip()
 
-                    for it in items:
-                        data = {}
-                        title = it.find('a', class_='title').text
-                        data['Judul'] = title
-                        div_elements = it.find_all(
-                            'div', style='padding:2px 2px 2px 2px;')
-                        for div in div_elements:
-                            span = div.find('span')
-                            if span:
-                                span_text = span.get_text()
-                                key, value = span_text.split(':', 1)
-                                data[key.strip()] = value.strip()
+                # Konten artikel
+                try:
+                    time.sleep(random.uniform(1, 2))  # Add delay between requests
+                    halaman = requests.get(link, headers=HEADERS, verify=False, timeout=10)
+                    halaman.raise_for_status()
+                    soup_baru = BeautifulSoup(halaman.text, 'html.parser')
+                    paragraphs = soup_baru.find_all('div', class_='read__content')
+                    content = ''
+                    for paragraph in paragraphs:
+                        for p in paragraph.find_all('p'):
+                            for strong_tag in p.find_all('strong'):
+                                strong_tag.replace_with('')
+                            content += p.text.strip() + '\n'
+                    # Hapus tanda - dari awal konten
+                    content = content.lstrip('-').strip()
+                except:
+                    content = "Could not retrieve content"
 
-                        abstrak_button = it.find('a', class_='gray button')
-                        if abstrak_button:
-                            abstrak_link = abstrak_button['href']
-                            abstrak_req = requests.get(abstrak_link)
-                            abstrak_soup = BeautifulSoup(
-                                abstrak_req.text, 'html.parser')
-                            abstrak = abstrak_soup.find('p', align='justify')
-                            if abstrak:
-                                abstrak_text = abstrak.get_text(strip=True)
-                                data['Abstrak'] = abstrak_text
-                            else:
-                                data['Abstrak'] = "Tidak ditemukan abstrak"
+                scraped_articles.append({
+                    'Kategori': category,
+                    'Judul': title,
+                    'Tanggal': tanggal,
+                    'Konten': content,
+                    'Link': link
+                })
+            except Exception as e:
+                st.warning(f"Error processing an article: {e}")
+                continue
 
-                        writer.writerow(data)
-                        st.text("Data berhasil ditambahkan: {}".format(data))
+        return scraped_articles
 
-                    page += 1
+    except requests.RequestException as e:
+        st.error(f"Error accessing {url}: {e}")
+        return []
 
-            st.success("Proses crawling selesai.")
+def run_scraping():
+    # Initialize session state if not exists
+    if 'scraped_data' not in st.session_state:
+        st.session_state.scraped_data = []
+    if 'total_data' not in st.session_state:
+        st.session_state.total_data = 0
+        
+    # Clear previous data
+    st.session_state.scraped_data = []
+    st.session_state.total_data = 0
+    
+    # Daftar kategori
+    categories = ['health', 'edukasi', 'news', 'travel', 'sport']  # Using lowercase and actual kompas categories
+    
+    # Rentang tanggal
+    start_date = datetime(2024, 1, 1)
+    end_date = datetime(2024, 1, 2)
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    total_days = (end_date - start_date).days + 1
+    total_tasks = total_days * len(categories)
+    completed_tasks = 0
+    
+    current_date = start_date
+    while current_date <= end_date:
+        formatted_date = current_date.strftime('%Y-%m-%d')
+        for category in categories:
+            try:
+                articles = scrape_kompas(category, formatted_date)
+                if articles:  # Only extend if we got articles
+                    st.session_state.scraped_data.extend(articles)
+                    st.session_state.total_data += len(articles)
+                
+                completed_tasks += 1
+                progress = completed_tasks / total_tasks
+                progress_bar.progress(progress)
+                status_text.text(f"Scraping... {completed_tasks}/{total_tasks} (Found {len(articles)} articles for {category} on {formatted_date})")
+            except Exception as e:
+                st.warning(f"Error scraping {category} on {formatted_date}: {e}")
+        current_date += timedelta(days=1)
+    
+    progress_bar.empty()
+    if st.session_state.total_data > 0:
+        status_text.text(f"Scraping completed! Total articles collected: {st.session_state.total_data}")
+    else:
+        status_text.text("Scraping completed but no articles were collected. The website might be blocking requests.")
+    
+    if st.session_state.scraped_data:
+        df = pd.DataFrame(st.session_state.scraped_data)
+        df.to_csv('hasil_scraping.csv', index=False, encoding='utf-8')
+        st.success("Data has been saved to 'hasil_scraping.csv'")
 
-        except Exception as e:
-            st.error(f"Terjadi kesalahan: {e}")
+def crawling_berita_page():
+    # Initialize session state variables at the start of the function
+    if 'scraped_data' not in st.session_state:
+        st.session_state.scraped_data = []
+    if 'total_data' not in st.session_state:
+        st.session_state.total_data = 0
 
-    # Tampilkan UI Streamlit
-    st.header("proses crowling data")
+    st.title('Kompas News Scraper')
+    st.write('klik tombol dibawah ini untuk memulai scraping berita dari Kompas.com')
+    
+    st.warning("""
+    **Note:** 
+    - Website Kompas mungkin memblokir permintaan scraping.
+    - Scraping mungkin tidak berhasil jika website memiliki proteksi anti-bot.
+    """)
 
-    if st.button("Mulai Web crowling"):
-        st.text("Memulai proses crawling...")
-        run_crawling_process()
+    if st.button('Start Crawling'):
+        with st.spinner('Scraping in progress... Please wait (this may take several minutes)'):
+            run_scraping()
 
-    abst = pd.read_csv("hasil_crowling.csv")
-    st.dataframe(abst)
-
-
-if __name__ == "__main__":
-    main()
+    # Check if there's any data in session state
+    if 'scraped_data' in st.session_state and st.session_state.scraped_data:
+        st.subheader(f"First 10 of {st.session_state.total_data} Scraped Articles")
+        
+        df = pd.DataFrame(st.session_state.scraped_data[:3])
+        
+        with st.expander("View Scraped Data"):
+            st.dataframe(df)
+        
+        st.subheader("Article Previews")
+        for i, article in enumerate(st.session_state.scraped_data[:10]):
+            with st.container():
+                st.markdown(f"### {i+1}. {article['Judul']}")
+                st.caption(f"**Category:** {article['Kategori']} | **Date:** {article['Tanggal']}")
+                
+                preview = article['Konten'][:200] + "..." if len(article['Konten']) > 200 else article['Konten']
+                st.write(preview)
+                
+                st.markdown(f"[Read more]({article['Link']})")
+                st.divider()
+    else:
+        st.info("Belum ada data. Klik tombol 'Start Crawling' untuk memulai.")
