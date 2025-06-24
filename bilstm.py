@@ -9,7 +9,6 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
-MODEL_PATH = "best_model_10epochs.h5"
 TOKENIZER_PATH = "tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
@@ -31,20 +30,29 @@ def load_tokenizer(path=TOKENIZER_PATH):
         st.error(f"Error loading tokenizer: {str(e)}")
     return None
 
-def load_model_with_fallback(model_path=MODEL_PATH):
-    """Attempt to load model with version compatibility fallbacks"""
+def load_model_with_fallback(uploaded_file):
+    """Attempt to load model from uploaded file with version compatibility fallbacks"""
     try:
-        # First try standard loading
-        model = tf.keras.models.load_model(model_path)
-        st.success("Model loaded successfully!")
+        # Save uploaded file to a temporary location
+        temp_model_path = "temp_model.h5"
+        with open(temp_model_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+            
+        # Load the model
+        model = tf.keras.models.load_model(temp_model_path)
+        st.success("Model loaded successfully from uploaded file!")
+        
+        # Clean up temporary file
+        os.remove(temp_model_path)
+        
         return model
     except Exception as e:
-        st.error(f"Initial model loading failed: {str(e)}")
+        st.error(f"Model loading failed: {str(e)}")
         
         # Show detailed troubleshooting
         with st.expander("Version Compatibility Solutions"):
             st.markdown(f"""
-            ### Detected TensorFlow {tf.__version__} but model requires ~{RECOMMENDED_TF_VERSION}
+            ### Detected TensorFlow {tf.__version__} but model might require ~{RECOMMENDED_TF_VERSION}
 
             1. **Recommended**: Create fresh environment:
             ```bash
@@ -57,7 +65,7 @@ def load_model_with_fallback(model_path=MODEL_PATH):
             2. **Model Conversion** (if you have original):
             ```python
             import tensorflow as tf
-            model = tf.keras.models.load_model('{model_path}')
+            model = tf.keras.models.load_model('original_model.h5')
             model.save('converted_model.h5')
             ```
 
@@ -102,10 +110,20 @@ def bilstm_page():
     
     # Model loading section
     st.subheader("Model Configuration")
+    
+    # File uploader for model
+    uploaded_model = st.file_uploader(
+        "Upload BiLSTM Model (.h5 file)",
+        type=["h5"],
+        help="Upload your trained BiLSTM model in .h5 format"
+    )
+    
     with st.spinner('Loading NLP resources...'):
         col1, col2 = st.columns(2)
         with col1:
-            model = load_model_with_fallback()
+            model = load_model_with_fallback(uploaded_model) if uploaded_model else None
+            if not uploaded_model:
+                st.warning("Please upload a model file to proceed")
         with col2:
             tokenizer = load_tokenizer()
         
@@ -122,7 +140,7 @@ def bilstm_page():
         help="Input text to classify into one of the predefined categories"
     )
     
-    if st.button("Classify Text"):  # Remove the type parameter
+    if st.button("Classify Text"):
         if not text_input.strip():
             st.warning("Please input text to classify")
             return
