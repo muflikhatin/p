@@ -9,7 +9,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
-MODEL_PATH = "best_model_10epochs.h5"
+MODEL_PATH = "best_model_6epochs.h5"
 TOKENIZER_PATH = "tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
