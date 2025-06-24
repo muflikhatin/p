@@ -1,0 +1,6 @@
+best_model_10epochs.h5 filter=lfs diff=lfs merge=lfs -text
+test_review.pkl filter=lfs diff=lfs merge=lfs -text
+review_CBOW.pkl filter=lfs diff=lfs merge=lfs -text
+preprocessed_data.csv filter=lfs diff=lfs merge=lfs -text
+review_CBOW_weights.csv filter=lfs diff=lfs merge=lfs -text
+cbow_model.h5 filter=lfs diff=lfs merge=lfs -text
