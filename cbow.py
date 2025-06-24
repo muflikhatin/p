@@ -18,7 +18,7 @@ def cbow_page():
         st.success(f"✅ Berhasil memuat '{filename}'")
         st.write(f"Ukuran data: {df.shape[0]} kata × {df.shape[1]} dimensi")
 
-        st.subheader("📊 Tampilkan 5×10 Embedding Pertama")
+        st.subheader("📊 Tampilkan Embedding Pertama")
         st.dataframe(df.iloc[:5, :10].style.format("{:.6f}"))
 
         st.download_button(
