@@ -1,35 +1,28 @@
 import pandas as pd
 import streamlit as st
 import numpy as np
-from sklearn.utils.validation import joblib
-
-# st.markdown("# 1. Information")
-# create content
-
+import joblib
 
 def main():
     st.title("Halaman Informasi")
-    st.header("Topic Modelling")
+    st.header("Klasifikasi Berita")
     st.container()
     st.write("""
-            * Topic Modelling adalah suatu metode pada analisa penambangan teks untuk melakukan penemuan data-data teks yang tersembunyi dan menemukan hubungan antara teks yang satu dengan lainnya dari suatu corpus
-            * mengelompokkan data teks yang didasarkan pada topik tertentu
-            * Ide-tema-pokok bahasan utama dalam suatu kumpulan teks
+            * Text Classification adalah metode dalam analisis teks yang digunakan untuk memberikan label atau kategori tertentu pada data teks berdasarkan isi atau makna dari teks tersebut.
+            * Mengelompokkan data teks ke dalam kelas-kelas yang telah ditentukan sebelumnya secara otomatis.
+            * Fokus pada identifikasi kategori utama atau label yang relevan dari suatu kumpulan teks.
             """)
 
     st.header("Informasi Data")
-
-    # Crowling data
     st.write("""
-    Data diperoleh dari hasil crowling data dari website https://pta.trunojoyo.ac.id
-    Data yang diambil berasal dari prodi Teknik Informatika, berikut variabel/fitur yang dihasilkan dari proses crowling data yaitu:
+    Data diperoleh dari hasil crowling data dari portal berita https://www.kompas.com
+    Data yang diambil berasal dari website kompas,com, berikut variabel/fitur yang dihasilkan dari proses crowling data yaitu:
+    * Kategori
     * Judul
-    * Penulis
-    * Dosen pembimbing I
-    * Dosen pembimbing II
-    * Abstrak
+    * Tanggal
+    * Jumlah_Kata
+    * Link
     """)
-
 
 if __name__ == "__main__":
     main()
