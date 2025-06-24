@@ -199,4 +199,4 @@ def bilstm_page():
                 st.error("Please check your input and try again")
 
 if __name__ == "__main__":
-    bilstm_page()
+        bilstm_page()
