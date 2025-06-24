@@ -15,17 +15,33 @@ RECOMMENDED_TF_VERSION = "2.6.0"
 def display_versions():
     """Display version information for troubleshooting"""
     st.write(f"TensorFlow: {tf.__version__}")
-    # Remove tf.keras.__version__ as it's not available in newer TF versions
     st.write(f"Recommended: TensorFlow {RECOMMENDED_TF_VERSION}")
 
 def load_tokenizer(path=TOKENIZER_PATH):
     """Load the tokenizer with proper error handling"""
     try:
+        # Try loading with regular pickle first
         with open(path, 'rb') as f:
-            return pickle.load(f)
+            tokenizer = pickle.load(f)
+        
+        # If it's a Keras tokenizer, ensure compatibility
+        if hasattr(tokenizer, 'oov_token'):
+            # Test tokenizer functionality
+            test_text = "sample text"
+            sequences = tokenizer.texts_to_sequences([test_text])
+            if sequences:
+                return tokenizer
+        
+        return tokenizer
+        
     except FileNotFoundError:
         st.error(f"Tokenizer file not found at: {os.path.abspath(path)}")
         st.error("Please ensure the tokenizer.pkl exists in your directory")
+    except ModuleNotFoundError as e:
+        st.error(f"Tokenizer compatibility error: {str(e)}")
+        st.error("This tokenizer was created with a different Keras version. Try:")
+        st.error("1. Recreating the tokenizer with current TensorFlow version")
+        st.error("2. Using TensorFlow {RECOMMENDED_TF_VERSION}")
     except Exception as e:
         st.error(f"Error loading tokenizer: {str(e)}")
     return None
@@ -38,8 +54,14 @@ def load_model_with_fallback(uploaded_file):
         with open(temp_model_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
             
-        # Load the model
-        model = tf.keras.models.load_model(temp_model_path)
+        # Try loading with different approaches
+        try:
+            # First try standard loading
+            model = tf.keras.models.load_model(temp_model_path)
+        except:
+            # Try loading with custom objects or compile=False
+            model = tf.keras.models.load_model(temp_model_path, compile=False)
+            
         st.success("Model loaded successfully from uploaded file!")
         
         # Clean up temporary file
@@ -52,7 +74,7 @@ def load_model_with_fallback(uploaded_file):
         # Show detailed troubleshooting
         with st.expander("Version Compatibility Solutions"):
             st.markdown(f"""
-            ### Detected TensorFlow {tf.__version__} but model might require ~{RECOMMENDED_TF_VERSION}
+            ### Detected TensorFlow {tf.__version__} but model requires ~{RECOMMENDED_TF_VERSION}
 
             1. **Recommended**: Create fresh environment:
             ```bash
@@ -65,11 +87,18 @@ def load_model_with_fallback(uploaded_file):
             2. **Model Conversion** (if you have original):
             ```python
             import tensorflow as tf
-            model = tf.keras.models.load_model('original_model.h5')
+            model = tf.keras.models.load_model('original_model.h5', compile=False)
             model.save('converted_model.h5', save_format='h5')
             ```
 
-            3. **Last Resort**: Retrain model with current TF version
+            3. **For Tokenizer Issues**:
+            ```python
+            # Recreate tokenizer with current version
+            from tensorflow.keras.preprocessing.text import Tokenizer
+            # Your tokenizer creation code here
+            ```
+
+            4. **Last Resort**: Retrain model with current TF version
             """)
             display_versions()
         
