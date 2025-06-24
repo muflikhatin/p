@@ -15,7 +15,7 @@ RECOMMENDED_TF_VERSION = "2.6.0"
 def display_versions():
     """Display version information for troubleshooting"""
     st.write(f"TensorFlow: {tf.__version__}")
-    st.write(f"Keras: {tf.keras.__version__}")
+    # Remove tf.keras.__version__ as it's not available in newer TF versions
     st.write(f"Recommended: TensorFlow {RECOMMENDED_TF_VERSION}")
 
 def load_tokenizer(path=TOKENIZER_PATH):
@@ -66,7 +66,7 @@ def load_model_with_fallback(uploaded_file):
             ```python
             import tensorflow as tf
             model = tf.keras.models.load_model('original_model.h5')
-            model.save('converted_model.h5')
+            model.save('converted_model.h5', save_format='h5')
             ```
 
             3. **Last Resort**: Retrain model with current TF version
