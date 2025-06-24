@@ -198,5 +198,7 @@ def bilstm_page():
                 st.error(f"Classification failed: {str(e)}")
                 st.error("Please check your input and try again")
 
+# Remove the if __name__ == "__main__" block since this is now a module
+
 if __name__ == "__main__":
         bilstm_page()
