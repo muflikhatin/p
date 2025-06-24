@@ -3,7 +3,7 @@ from main import main as main_page
 from crawling_berita import crawling_berita_page
 from preprocessing import preprocessing_page
 from cbow import cbow_page
-from bilstm import bilstm_page
+from bilstm import main_app_interface as bilstm_page
 
 selected_page = st.sidebar.selectbox(
     "Pilih Halaman:",
