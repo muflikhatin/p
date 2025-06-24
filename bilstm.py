@@ -9,7 +9,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
-DEFAULT_MODEL_PATH = "best_model_10epochs.h5"  # Default path if no upload
+DEFAULT_MODEL_PATH = "best_model_10epochs.h5"
 TOKENIZER_PATH = "tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
@@ -50,11 +50,9 @@ def handle_model_upload():
     if uploaded_file is not None:
         temp_path = "temp_uploaded_model.h5"
         try:
-            # Save the uploaded file temporarily
             with open(temp_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             
-            # Attempt 1: Standard loading
             try:
                 model = tf.keras.models.load_model(temp_path)
                 os.remove(temp_path)
@@ -62,7 +60,6 @@ def handle_model_upload():
             except Exception as e:
                 st.warning(f"Standard loading failed, trying compatibility mode...")
             
-            # Attempt 2: With custom objects
             try:
                 custom_objects = {
                     'InputLayer': tf.keras.layers.InputLayer,
@@ -75,7 +72,6 @@ def handle_model_upload():
             except Exception as e:
                 st.warning(f"Custom objects loading failed, trying legacy format...")
             
-            # Attempt 3: Legacy format
             try:
                 model = tf.keras.models.load_model(temp_path, compile=False)
                 os.remove(temp_path)
@@ -87,7 +83,6 @@ def handle_model_upload():
                     os.remove(temp_path)
                 return None
     
-    # If no upload, try loading default model
     try:
         return tf.keras.models.load_model(DEFAULT_MODEL_PATH)
     except Exception as e:
@@ -198,7 +193,9 @@ def bilstm_page():
                 st.error(f"Classification failed: {str(e)}")
                 st.error("Please check your input and try again")
 
-# Remove the if __name__ == "__main__" block since this is now a module
+# This should be the only code at the bottom of the file
+def main():
+    bilstm_page()
 
 if __name__ == "__main__":
-        bilstm_page()
+    main()
