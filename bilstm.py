@@ -12,7 +12,7 @@ from io import BytesIO
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
 MODEL_PATH = "best_model_10epochs.h5"
-TOKENIZER_GITHUB_RAW_URL = "https://github.com/[username]/[repo]/raw/main/tokenizer.pkl"
+TOKENIZER_GITHUB_RAW_URL = "https://github.com/muflikhatin/p/blob/main/tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
 def display_versions():
