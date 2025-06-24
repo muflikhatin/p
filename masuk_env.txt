@@ -1,0 +1,5 @@
+PS D:\semester 7\Skripsi\SKRIPSI\skripsi-main> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+>> 
+PS D:\semester 7\Skripsi\SKRIPSI\skripsi-main> .\env_skripsi\Scripts\activate
+>> 
+(env_skripsi) PS D:\semester 7\Skripsi\SKRIPSI\skripsi-main> 
