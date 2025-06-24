@@ -12,7 +12,7 @@ from io import BytesIO
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
 MODEL_PATH = "best_model_10epochs.h5"
-TOKENIZER_GITHUB_RAW_URL = "https://github.com/[username]/[repo]/raw/main/tokenizer.pkl"  # Ganti dengan URL GitHub Anda
+TOKENIZER_GITHUB_RAW_URL = "https://github.com/[username]/[repo]/raw/main/tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
 def display_versions():
@@ -32,8 +32,6 @@ def download_tokenizer_from_github():
     try:
         response = requests.get(TOKENIZER_GITHUB_RAW_URL)
         response.raise_for_status()
-        
-        # Load directly from memory without saving to file
         tokenizer = pickle.load(BytesIO(response.content))
         st.success("Tokenizer loaded successfully from GitHub!")
         return tokenizer
@@ -53,25 +51,20 @@ def load_model_with_fallback():
         return model
     except Exception as e:
         st.error(f"Model loading failed: {str(e)}")
-        
         with st.expander("Troubleshooting Guide"):
             st.markdown(f"""
             ### Compatibility Issues Detected
-            
             **Recommended Solutions:**
-            
             1. **Install Recommended Version**:
             ```bash
             pip install tensorflow=={RECOMMENDED_TF_VERSION}
             ```
-            
-            2. **Convert Model** (if you have access to training code):
+            2. **Convert Model**:
             ```python
             import tensorflow as tf
             model = tf.keras.models.load_model('{MODEL_PATH}')
             model.save('converted_model.h5', save_format='h5')
             ```
-            
             3. **Environment Setup**:
             ```bash
             python -m venv tf_env
@@ -91,24 +84,21 @@ def display_prediction_results(predictions):
     """Display classification results"""
     pred_class = np.argmax(predictions)
     confidence = predictions[pred_class]
-    
     st.success(f"**Predicted Category**: {CLASS_NAMES[pred_class]} (confidence: {confidence:.1%})")
-    
     st.subheader("Detailed Probabilities")
     prob_data = pd.DataFrame({
         'Category': CLASS_NAMES,
         'Probability': predictions,
         'Confidence (%)': (predictions * 100).round(1)
     }).sort_values('Probability', ascending=False)
-    
     col1, col2 = st.columns(2)
     with col1:
         st.bar_chart(prob_data.set_index('Category')['Probability'])
     with col2:
         st.table(prob_data)
 
-def main_app_interface():
-    """Main application interface"""
+def bilstm_page():
+    """Main BiLSTM classification interface - renamed from main_app_interface"""
     st.title("📰 News Article Classifier")
     st.markdown("Classify articles into: Travel, Edukasi, Sports, Politik, or Health")
     
@@ -153,4 +143,4 @@ if __name__ == "__main__":
         page_icon="📰",
         layout="wide"
     )
-    main_app_interface()
+    bilstm_page()
