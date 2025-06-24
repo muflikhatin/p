@@ -9,63 +9,81 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
-MODEL_PATH = "best_model_10epochs.h5"
-TOKENIZER_PATH = "tokenizer.pkl"
 RECOMMENDED_TF_VERSION = "2.6.0"
 
 def display_versions():
     """Display version information for troubleshooting"""
     st.write(f"TensorFlow: {tf.__version__}")
-    st.write(f"Keras: {tf.keras.__version__}")
+    try:
+        st.write(f"Keras: {tf.keras.__version__}")
+    except AttributeError:
+        st.write("Keras: Built-in with TensorFlow")
     st.write(f"Recommended: TensorFlow {RECOMMENDED_TF_VERSION}")
 
-def load_tokenizer(path=TOKENIZER_PATH):
-    """Load the tokenizer with proper error handling"""
-    try:
-        with open(path, 'rb') as f:
-            return pickle.load(f)
-    except FileNotFoundError:
-        st.error(f"Tokenizer file not found at: {os.path.abspath(path)}")
-        st.error("Please ensure the tokenizer.pkl exists in your directory")
-    except Exception as e:
-        st.error(f"Error loading tokenizer: {str(e)}")
+def handle_file_upload(file_type, file_ext):
+    """Handle file uploads with proper validation"""
+    uploaded_file = st.file_uploader(
+        f"Upload {file_type} file (.{file_ext})",
+        type=[file_ext],
+        key=f"{file_type}_uploader"
+    )
+    
+    if uploaded_file is not None:
+        # Save the uploaded file temporarily
+        temp_path = f"temp_uploaded.{file_ext}"
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        return temp_path
     return None
 
-def load_model_with_fallback(model_path=MODEL_PATH):
-    """Attempt to load model with version compatibility fallbacks"""
-    try:
-        # First try standard loading
-        model = tf.keras.models.load_model(model_path)
-        st.success("Model loaded successfully!")
-        return model
-    except Exception as e:
-        st.error(f"Initial model loading failed: {str(e)}")
-        
-        # Show detailed troubleshooting
-        with st.expander("Version Compatibility Solutions"):
-            st.markdown(f"""
-            ### Detected TensorFlow {tf.__version__} but model requires ~{RECOMMENDED_TF_VERSION}
+def load_tokenizer(uploaded_path=None):
+    """Load tokenizer from uploaded file or default path"""
+    if uploaded_path:
+        try:
+            with open(uploaded_path, 'rb') as f:
+                tokenizer = pickle.load(f)
+            os.remove(uploaded_path)  # Clean up temp file
+            return tokenizer
+        except Exception as e:
+            st.error(f"Error loading tokenizer: {str(e)}")
+            return None
+    
+    st.info("No tokenizer uploaded yet")
+    return None
 
-            1. **Recommended**: Create fresh environment:
-            ```bash
-            python -m venv tf_env
-            source tf_env/bin/activate  # Linux/Mac
-            .\\tf_env\\Scripts\\activate  # Windows
-            pip install tensorflow=={RECOMMENDED_TF_VERSION}
-            ```
-
-            2. **Model Conversion** (if you have original):
-            ```python
-            import tensorflow as tf
-            model = tf.keras.models.load_model('{model_path}')
-            model.save('converted_model.h5')
-            ```
-
-            3. **Last Resort**: Retrain model with current TF version
-            """)
-            display_versions()
-        
-        return None
+def load_model(uploaded_path=None):
+    """Load model with comprehensive error handling"""
+    if uploaded_path:
+        try:
+            # Try standard loading first
+            try:
+                model = tf.keras.models.load_model(uploaded_path)
+                st.success("Model loaded successfully!")
+                os.remove(uploaded_path)  # Clean up temp file
+                return model
+            except Exception as e:
+                st.warning(f"Standard loading failed: {str(e)}. Trying compatibility mode...")
+            
+            # Try with custom objects
+            try:
+                custom_objects = {
+                    'InputLayer': tf.keras.layers.InputLayer,
+                    'Functional': tf.keras.models.Model
+                }
+                with tf.keras.utils.custom_object_scope(custom_objects):
+                    model = tf.keras.models.load_model(uploaded_path)
+                st.success("Model loaded in compatibility mode!")
+                os.remove(uploaded_path)
+                return model
+            except Exception as e:
+                st.error(f"Model loading failed: {str(e)}")
+                return None
+        except Exception as e:
+            st.error(f"Error processing model file: {str(e)}")
+            return None
+    
+    st.info("No model uploaded yet")
+    return None
 
 def preprocess_text(text, tokenizer):
     """Convert raw text to padded sequences"""
@@ -73,14 +91,12 @@ def preprocess_text(text, tokenizer):
     return pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH, padding='post')
 
 def display_prediction_results(predictions):
-    """Display classification results in user-friendly format"""
+    """Display classification results"""
     pred_class = np.argmax(predictions)
     confidence = predictions[pred_class]
     
-    # Main result
     st.success(f"**Predicted Category**: {CLASS_NAMES[pred_class]} (confidence: {confidence:.1%})")
     
-    # Detailed probabilities
     st.subheader("Category Probabilities")
     prob_data = pd.DataFrame({
         'Category': CLASS_NAMES,
@@ -88,7 +104,6 @@ def display_prediction_results(predictions):
         'Confidence (%)': (predictions * 100).round(1)
     }).sort_values('Probability', ascending=False)
     
-    # Add visual bar chart
     st.bar_chart(prob_data.set_index('Category')['Probability'])
     st.table(prob_data)
 
@@ -96,51 +111,79 @@ def bilstm_page():
     """Main BiLSTM classification interface"""
     st.title("📄 Document Classification with BiLSTM")
     
-    # Version info (collapsed by default)
     with st.expander("Environment Information", expanded=False):
         display_versions()
     
-    # Model loading section
-    st.subheader("Model Configuration")
-    with st.spinner('Loading NLP resources...'):
-        col1, col2 = st.columns(2)
-        with col1:
-            model = load_model_with_fallback()
-        with col2:
-            tokenizer = load_tokenizer()
-        
-        if not model or not tokenizer:
-            st.error("⚠️ System cannot proceed without both model and tokenizer")
-            st.stop()  # Stop execution if resources not loaded
+    st.subheader("1. Upload Required Files")
     
-    # Classification interface
-    st.subheader("Text Classification")
-    text_input = st.text_area(
-        "Enter news/article text:", 
-        height=200,
-        placeholder="Paste your content here...",
-        help="Input text to classify into one of the predefined categories"
+    # File upload section
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Upload Model File**")
+        model_path = handle_file_upload("model", "h5")
+    with col2:
+        st.markdown("**Upload Tokenizer File**")  
+        tokenizer_path = handle_file_upload("tokenizer", "pkl")
+
+    # Load resources
+    tokenizer = load_tokenizer(tokenizer_path)
+    model = load_model(model_path)
+
+    st.subheader("2. Enter Text for Classification")
+    input_text = st.text_area("Paste your document text here:", height=200)
+
+    if st.button("Classify Document") and tokenizer and model:
+        if input_text.strip():
+            with st.spinner("Processing document..."):
+                try:
+                    # Preprocess and predict
+                    processed_text = preprocess_text(input_text, tokenizer)
+                    predictions = model.predict(processed_text)
+                    display_prediction_results(predictions[0])
+                except Exception as e:
+                    st.error(f"Error during classification: {str(e)}")
+        else:
+            st.warning("Please enter some text to classify")
+
+def main():
+    """Main application entry point"""
+    st.set_page_config(
+        page_title="Document Classifier",
+        page_icon="📄",
+        layout="wide"
     )
-    
-    if st.button("Classify Text"):  # Remove the type parameter
-        if not text_input.strip():
-            st.warning("Please input text to classify")
-            return
-            
-        with st.spinner('Analyzing content...'):
-            try:
-                # Text processing
-                padded_seq = preprocess_text(text_input, tokenizer)
-                
-                # Prediction
-                predictions = model.predict(padded_seq, verbose=0)[0]
-                
-                # Display results
-                display_prediction_results(predictions)
-                
-            except Exception as e:
-                st.error(f"Classification failed: {str(e)}")
-                st.error("Please check your input and try again")
+
+    # Sidebar navigation
+    st.sidebar.title("Navigation")
+    app_mode = st.sidebar.radio(
+        "Choose the page:",
+        ["BiLSTM Classifier", "About"]
+    )
+
+    if app_mode == "BiLSTM Classifier":
+        bilstm_page()
+    else:
+        st.title("About This App")
+        st.markdown("""
+        ## Document Classification Tool
+        
+        This application uses a BiLSTM neural network to classify documents into 5 categories:
+        - Travel
+        - Edukasi (Education)
+        - Sports  
+        - Politik (Politics)
+        - Health
+
+        ### How to use:
+        1. Upload a trained BiLSTM model (.h5 file)
+        2. Upload the corresponding tokenizer (.pkl file)
+        3. Enter text to classify
+        4. Click "Classify Document"
+
+        ### Requirements:
+        - TensorFlow 2.x (Recommended: 2.6.0)
+        - Python 3.7+
+        """)
 
 if __name__ == "__main__":
-    bilstm_page()
+    main()
