@@ -1,4 +1,5 @@
 import os
+import requests
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,6 +11,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MAX_SEQUENCE_LENGTH = 300
 RECOMMENDED_TF_VERSION = "2.6.0"
+TOKENIZER_URL = "https://raw.githubusercontent.com/[username]/[repo]/main/tokenizer.pkl"  # Ganti dengan URL tokenizer Anda
 
 def display_versions():
     """Display version information for troubleshooting"""
@@ -36,20 +38,25 @@ def handle_file_upload(file_type, file_ext):
         return temp_path
     return None
 
-def load_tokenizer(uploaded_path=None):
-    """Load tokenizer from uploaded file or default path"""
-    if uploaded_path:
-        try:
-            with open(uploaded_path, 'rb') as f:
-                tokenizer = pickle.load(f)
-            os.remove(uploaded_path)  # Clean up temp file
-            return tokenizer
-        except Exception as e:
-            st.error(f"Error loading tokenizer: {str(e)}")
-            return None
-    
-    st.info("No tokenizer uploaded yet")
-    return None
+def load_tokenizer_from_github():
+    """Load tokenizer directly from GitHub"""
+    try:
+        response = requests.get(TOKENIZER_URL)
+        response.raise_for_status()
+        
+        # Save temporarily
+        temp_path = "temp_tokenizer.pkl"
+        with open(temp_path, "wb") as f:
+            f.write(response.content)
+            
+        with open(temp_path, "rb") as f:
+            tokenizer = pickle.load(f)
+        
+        os.remove(temp_path)  # Clean up
+        return tokenizer
+    except Exception as e:
+        st.error(f"Error loading tokenizer from GitHub: {str(e)}")
+        return None
 
 def load_model(uploaded_path=None):
     """Load model with comprehensive error handling"""
@@ -114,19 +121,21 @@ def bilstm_page():
     with st.expander("Environment Information", expanded=False):
         display_versions()
     
-    st.subheader("1. Upload Required Files")
+    st.subheader("1. Upload Model File")
     
-    # File upload section
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Upload Model File**")
-        model_path = handle_file_upload("model", "h5")
-    with col2:
-        st.markdown("**Upload Tokenizer File**")  
-        tokenizer_path = handle_file_upload("tokenizer", "pkl")
+    # Only upload model file
+    model_path = handle_file_upload("model", "h5")
+    
+    # Automatically load tokenizer from GitHub
+    with st.spinner("Loading tokenizer from GitHub..."):
+        tokenizer = load_tokenizer_from_github()
+    
+    if tokenizer:
+        st.success("Tokenizer loaded successfully from GitHub!")
+    else:
+        st.error("Failed to load tokenizer. Please check the GitHub repository.")
 
-    # Load resources
-    tokenizer = load_tokenizer(tokenizer_path)
+    # Load model
     model = load_model(model_path)
 
     st.subheader("2. Enter Text for Classification")
@@ -176,7 +185,7 @@ def main():
 
         ### How to use:
         1. Upload a trained BiLSTM model (.h5 file)
-        2. Upload the corresponding tokenizer (.pkl file)
+        2. The tokenizer will be loaded automatically from GitHub
         3. Enter text to classify
         4. Click "Classify Document"
 
