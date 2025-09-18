@@ -1,146 +1,351 @@
 import os
-import streamlit as st
-import pandas as pd
-import numpy as np
+import re
 import pickle
+import warnings
+from io import BytesIO
+import numpy as np
+import pandas as pd
+import streamlit as st
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.text import tokenizer_from_json
+
+# Set page config before anything else
+st.set_page_config(page_title="Doc Classifier", layout="wide")
+
+warnings.filterwarnings('ignore')
 
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
-MAX_SEQUENCE_LENGTH = 300
-MODEL_PATH = "best_model_10epochs.h5"
+MODEL_PATH = "best_model_15epochs.h5"
 TOKENIZER_PATH = "tokenizer.pkl"
-RECOMMENDED_TF_VERSION = "2.6.0"
+MAX_SEQUENCE_LENGTH = 300
+CHUNK_SIZE = 500  # Number of documents to process at a time
 
-def display_versions():
-    """Display version information for troubleshooting"""
-    st.write(f"TensorFlow: {tf.__version__}")
-    st.write(f"Keras: {tf.keras.__version__}")
-    st.write(f"Recommended: TensorFlow {RECOMMENDED_TF_VERSION}")
-
+@st.cache(allow_output_mutation=True)
 def load_tokenizer(path=TOKENIZER_PATH):
-    """Load the tokenizer with proper error handling"""
     try:
         with open(path, 'rb') as f:
-            return pickle.load(f)
-    except FileNotFoundError:
-        st.error(f"Tokenizer file not found at: {os.path.abspath(path)}")
-        st.error("Please ensure the tokenizer.pkl exists in your directory")
+            tokenizer = pickle.load(f)
+        return tokenizer
     except Exception as e:
         st.error(f"Error loading tokenizer: {str(e)}")
-    return None
-
-def load_model_with_fallback(model_path=MODEL_PATH):
-    """Attempt to load model with version compatibility fallbacks"""
-    try:
-        # First try standard loading
-        model = tf.keras.models.load_model(model_path)
-        st.success("Model loaded successfully!")
-        return model
-    except Exception as e:
-        st.error(f"Initial model loading failed: {str(e)}")
-        
-        # Show detailed troubleshooting
-        with st.expander("Version Compatibility Solutions"):
-            st.markdown(f"""
-            ### Detected TensorFlow {tf.__version__} but model requires ~{RECOMMENDED_TF_VERSION}
-
-            1. **Recommended**: Create fresh environment:
-            ```bash
-            python -m venv tf_env
-            source tf_env/bin/activate  # Linux/Mac
-            .\\tf_env\\Scripts\\activate  # Windows
-            pip install tensorflow=={RECOMMENDED_TF_VERSION}
-            ```
-
-            2. **Model Conversion** (if you have original):
-            ```python
-            import tensorflow as tf
-            model = tf.keras.models.load_model('{model_path}')
-            model.save('converted_model.h5')
-            ```
-
-            3. **Last Resort**: Retrain model with current TF version
-            """)
-            display_versions()
-        
         return None
 
+@st.cache(allow_output_mutation=True)
+def load_model(model_path=MODEL_PATH):
+    try:
+        model = tf.keras.models.load_model(model_path)
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        return None
+
+def clean_text(text):
+    if pd.isna(text):
+        return ""
+    text = str(text)
+    text = re.sub(r'[^\w\s]', '', text)
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
 def preprocess_text(text, tokenizer):
-    """Convert raw text to padded sequences"""
-    sequences = tokenizer.texts_to_sequences([text])
-    return pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH, padding='post')
+    try:
+        text = clean_text(text)
+        sequences = tokenizer.texts_to_sequences([text])
+        padded = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH, padding='post')
+        return padded
+    except Exception as e:
+        st.warning(f"Preprocessing failed: {str(e)}")
+        return None
 
-def display_prediction_results(predictions):
-    """Display classification results in user-friendly format"""
-    pred_class = np.argmax(predictions)
-    confidence = predictions[pred_class]
-    
-    # Main result
-    st.success(f"**Predicted Category**: {CLASS_NAMES[pred_class]} (confidence: {confidence:.1%})")
-    
-    # Detailed probabilities
-    st.subheader("Category Probabilities")
-    prob_data = pd.DataFrame({
-        'Category': CLASS_NAMES,
-        'Probability': predictions,
-        'Confidence (%)': (predictions * 100).round(1)
-    }).sort_values('Probability', ascending=False)
-    
-    # Add visual bar chart
-    st.bar_chart(prob_data.set_index('Category')['Probability'])
-    st.table(prob_data)
+def map_category(kat):
+    mapping = {
+        'travel': 'Travel', 'edukasi': 'Edukasi', 'pendidikan': 'Edukasi',
+        'sports': 'Sports', 'olahraga': 'Sports', 'politik': 'Politik',
+        'health': 'Health', 'kesehatan': 'Health'
+    }
+    kat = str(kat).strip().lower()
+    return mapping.get(kat, 'Unknown')
 
-def bilstm_page():
-    """Main BiLSTM classification interface"""
-    st.title("📄 Document Classification with BiLSTM")
-    
-    # Version info (collapsed by default)
-    with st.expander("Environment Information", expanded=False):
-        display_versions()
-    
-    # Model loading section
-    st.subheader("Model Configuration")
-    with st.spinner('Loading NLP resources...'):
-        col1, col2 = st.columns(2)
-        with col1:
-            model = load_model_with_fallback()
-        with col2:
-            tokenizer = load_tokenizer()
+def read_data_in_chunks(uploaded_file, tokenizer):
+    try:
+        filename = uploaded_file.name.lower()
         
-        if not model or not tokenizer:
-            st.error("⚠️ System cannot proceed without both model and tokenizer")
-            st.stop()  # Stop execution if resources not loaded
+        # Initialize an empty DataFrame to store results
+        full_df = pd.DataFrame()
+        
+        # Create a progress bar
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        if filename.endswith('.csv'):
+            # Read CSV in chunks
+            chunks = pd.read_csv(uploaded_file, encoding='utf-8', on_bad_lines='skip', chunksize=CHUNK_SIZE)
+            total_chunks = sum(1 for _ in pd.read_csv(uploaded_file, encoding='utf-8', on_bad_lines='skip', chunksize=CHUNK_SIZE))
+            
+            for i, chunk in enumerate(chunks):
+                status_text.text(f"Processing chunk {i+1} of {total_chunks}...")
+                processed_chunk = process_chunk(chunk, tokenizer)
+                if processed_chunk is not None and not processed_chunk.empty:
+                    full_df = pd.concat([full_df, processed_chunk], ignore_index=True)
+                progress_bar.progress((i + 1) / total_chunks)
+                
+        elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+            # For Excel files, read all at once but process in chunks
+            df = pd.read_excel(uploaded_file)
+            total_rows = len(df)
+            num_chunks = (total_rows // CHUNK_SIZE) + 1
+            
+            for i in range(num_chunks):
+                start_idx = i * CHUNK_SIZE
+                end_idx = min((i + 1) * CHUNK_SIZE, total_rows)
+                status_text.text(f"Processing rows {start_idx+1} to {end_idx} of {total_rows}...")
+                chunk = df.iloc[start_idx:end_idx]
+                processed_chunk = process_chunk(chunk, tokenizer)
+                if processed_chunk is not None and not processed_chunk.empty:
+                    full_df = pd.concat([full_df, processed_chunk], ignore_index=True)
+                progress_bar.progress((i + 1) / num_chunks)
+                
+        elif filename.endswith('.txt'):
+            # For TXT files, read all at once but process in chunks
+            df = pd.read_csv(uploaded_file, delimiter='\t', encoding='utf-8', on_bad_lines='skip')
+            total_rows = len(df)
+            num_chunks = (total_rows // CHUNK_SIZE) + 1
+            
+            for i in range(num_chunks):
+                start_idx = i * CHUNK_SIZE
+                end_idx = min((i + 1) * CHUNK_SIZE, total_rows)
+                status_text.text(f"Processing rows {start_idx+1} to {end_idx} of {total_rows}...")
+                chunk = df.iloc[start_idx:end_idx]
+                processed_chunk = process_chunk(chunk, tokenizer)
+                if processed_chunk is not None and not processed_chunk.empty:
+                    full_df = pd.concat([full_df, processed_chunk], ignore_index=True)
+                progress_bar.progress((i + 1) / num_chunks)
+                
+        else:
+            st.error("Unsupported file type. Please upload a CSV, Excel (.xlsx), or TXT file.")
+            return None
+
+        status_text.text("Processing completed!")
+        progress_bar.empty()
+        
+        return full_df
     
-    # Classification interface
-    st.subheader("Text Classification")
-    text_input = st.text_area(
-        "Enter news/article text:", 
-        height=200,
-        placeholder="Paste your content here...",
-        help="Input text to classify into one of the predefined categories"
+    except Exception as e:
+        st.error(f"Error reading file: {str(e)}")
+        return None
+
+def process_chunk(chunk, tokenizer):
+    try:
+        chunk.columns = [c.strip() for c in chunk.columns]
+
+        if 'Kategori' not in chunk.columns or 'Konten' not in chunk.columns:
+            return None
+
+        chunk['Kategori'] = chunk['Kategori'].map(map_category)
+        chunk = chunk[chunk['Kategori'].isin(CLASS_NAMES)]
+        chunk['Konten'] = chunk['Konten'].astype(str).apply(clean_text)
+
+        chunk['Padded'] = chunk['Konten'].apply(lambda x: preprocess_text(x, tokenizer))
+        chunk = chunk[chunk['Padded'].notna()]
+        chunk = chunk[chunk['Padded'].apply(lambda x: x is not None and x.size > 0)]
+
+        return chunk
+    
+    except Exception as e:
+        st.warning(f"Error processing chunk: {str(e)}")
+        return None
+
+def predict_in_batches(df, model):
+    try:
+        # Initialize empty lists to store results
+        all_preds = []
+        all_confidences = []
+        
+        # Get the padded values
+        padded_values = df['Padded'].values
+        
+        # Process in batches to avoid memory issues
+        batch_size = 100  # Number of documents to predict at once
+        num_batches = (len(padded_values) // batch_size) + 1
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i in range(num_batches):
+            start_idx = i * batch_size
+            end_idx = min((i + 1) * batch_size, len(padded_values))
+            
+            status_text.text(f"Predicting batch {i+1} of {num_batches}...")
+            
+            # Get the current batch
+            batch = np.vstack(padded_values[start_idx:end_idx])
+            
+            # Predict
+            preds = model.predict(batch, verbose=0)
+            
+            # Store results
+            all_preds.extend([CLASS_NAMES[np.argmax(p)] for p in preds])
+            all_confidences.extend([np.max(p) for p in preds])
+            
+            progress_bar.progress((i + 1) / num_batches)
+        
+        # Add results to DataFrame
+        df['Prediksi'] = all_preds
+        df['Confidence'] = all_confidences
+        df['Correct'] = df['Kategori'] == df['Prediksi']
+        
+        progress_bar.empty()
+        status_text.text("Prediction completed!")
+        
+        return df[['Kategori', 'Konten', 'Prediksi', 'Confidence', 'Correct']]
+    
+    except Exception as e:
+        st.error(f"Error during prediction: {str(e)}")
+        return pd.DataFrame()
+
+def display_results(result_df, sample_size=10):
+    # Calculate accuracy
+    accuracy = result_df['Correct'].mean()
+    
+    # Display metrics
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Accuracy", f"{accuracy:.1%}")
+    with col2:
+        st.metric("Total Documents Processed", len(result_df))
+    
+    # Show a sample of results
+    st.subheader(f"Sample Results (showing {min(sample_size, len(result_df))} of {len(result_df)})")
+    
+    # Select a balanced sample (some correct, some incorrect)
+    if len(result_df) > sample_size:
+        correct_samples = result_df[result_df['Correct']]
+        incorrect_samples = result_df[~result_df['Correct']]
+        
+        # Take at least 2 incorrect samples if available
+        n_incorrect = min(2, len(incorrect_samples))
+        n_correct = sample_size - n_incorrect
+        
+        sample_df = pd.concat([
+            correct_samples.sample(n=n_correct, random_state=42) if len(correct_samples) > 0 else pd.DataFrame(),
+            incorrect_samples.sample(n=n_incorrect, random_state=42) if len(incorrect_samples) > 0 else pd.DataFrame()
+        ])
+        
+        # If we didn't get enough samples, fill with random ones
+        if len(sample_df) < sample_size:
+            additional_samples = result_df.sample(n=sample_size-len(sample_df), random_state=42)
+            sample_df = pd.concat([sample_df, additional_samples])
+    else:
+        sample_df = result_df
+    
+    # Display the sample
+    def highlight_incorrect(val):
+        return 'background-color: #ffcccc' if val is False else ''
+    
+    st.dataframe(
+        sample_df.style.format({'Confidence': '{:.1%}'})
+            .applymap(highlight_incorrect, subset=['Correct']),
+        height=400
     )
     
-    if st.button("Classify Text"):  # Remove the type parameter
-        if not text_input.strip():
-            st.warning("Please input text to classify")
-            return
-            
-        with st.spinner('Analyzing content...'):
-            try:
-                # Text processing
-                padded_seq = preprocess_text(text_input, tokenizer)
+    # Show misclassification analysis
+    if not result_df[~result_df['Correct']].empty:
+        st.subheader("Misclassification Analysis")
+        
+        # Confusion matrix
+        st.write("Confusion Matrix:")
+        confusion = pd.crosstab(
+            result_df['Kategori'], 
+            result_df['Prediksi'], 
+            rownames=['Actual'], 
+            colnames=['Predicted'],
+            margins=True
+        )
+        st.dataframe(confusion.style.background_gradient(cmap='Blues'))
+        
+        # Show some misclassified examples
+        st.write("Examples of Misclassified Documents:")
+        wrongs = result_df[~result_df['Correct']].sample(n=min(3, len(result_df[~result_df['Correct']])), random_state=42)
+        for _, row in wrongs.iterrows():
+            st.write(f"**Actual:** {row['Kategori']} | **Predicted:** {row['Prediksi']} (Confidence: {row['Confidence']:.1%})")
+            with st.expander("View Content"):
+                st.text(row['Konten'][:500] + ("..." if len(row['Konten']) > 500 else ""))
+
+def predict_single_text(text, model, tokenizer):
+    padded = preprocess_text(text, tokenizer)
+    if padded is None:
+        return None, None, None
+    pred = model.predict(padded, verbose=0)[0]
+    return CLASS_NAMES[np.argmax(pred)], np.max(pred), pred
+
+def bilstm10_page():
+    st.title("📊 Document Classification (Large Files Support)")
+
+    with st.spinner("Loading model and tokenizer..."):
+        model = load_model()
+        tokenizer = load_tokenizer()
+        if model is None or tokenizer is None:
+            st.stop()
+
+    mode = st.radio("Choose Mode", ["📄 Upload File", "🔍 Single Prediction"], horizontal=True)
+
+    if mode == "📄 Upload File":
+        st.info("Note: This version supports large files (thousands of documents) with progress tracking.")
+        uploaded_file = st.file_uploader("Upload CSV, Excel, or TXT file", type=['csv', 'xlsx', 'xls', 'txt'])
+        
+        if uploaded_file:
+            # Read and process the file in chunks
+            with st.spinner("Reading and processing file..."):
+                df = read_data_in_chunks(uploaded_file, tokenizer)
                 
-                # Prediction
-                predictions = model.predict(padded_seq, verbose=0)[0]
+            if df is not None and not df.empty:
+                st.success(f"Successfully processed {len(df)} documents. Now predicting...")
                 
-                # Display results
-                display_prediction_results(predictions)
+                # Predict in batches
+                result_df = predict_in_batches(df, model)
                 
-            except Exception as e:
-                st.error(f"Classification failed: {str(e)}")
-                st.error("Please check your input and try again")
+                if not result_df.empty:
+                    # Display results
+                    display_results(result_df)
+                    
+                    # Download options
+                    st.subheader("Download Results")
+                    
+                    # Excel download
+                    excel_buffer = BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                        result_df.to_excel(writer, index=False, sheet_name='Results')
+                    st.download_button(
+                        "Download Full Results (Excel)",
+                        excel_buffer.getvalue(),
+                        "document_classification_results.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    
+                    # CSV download
+                    csv_buffer = result_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "Download Full Results (CSV)",
+                        csv_buffer,
+                        "document_classification_results.csv",
+                        mime="text/csv"
+                    )
+    else:
+        text = st.text_area("Enter text to classify:", height=200, placeholder="Paste your document content here...")
+        if st.button("Classify", type="primary") and text:
+            pred_class, conf, dist = predict_single_text(text, model, tokenizer)
+            if pred_class:
+                st.success(f"Predicted class: **{pred_class}** with confidence: **{conf:.1%}**")
+                st.subheader("Prediction Distribution")
+                pred_df = pd.DataFrame({"Class": CLASS_NAMES, "Confidence": dist}).sort_values("Confidence", ascending=False)
+                st.bar_chart(pred_df.set_index("Class"))
+                
+                # Show detailed probabilities
+                with st.expander("View Detailed Probabilities"):
+                    st.dataframe(pred_df.style.format({'Confidence': '{:.3f}'}))
 
 if __name__ == "__main__":
-    bilstm_page()
+    bilstm10_page()
