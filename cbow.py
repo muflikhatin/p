@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import gdown
 import pickle
+import numpy as np
 
 @st.cache_resource
 def load_cbow_model():
@@ -11,12 +12,29 @@ def load_cbow_model():
     
     if not os.path.exists(filename):
         with st.spinner('Mengunduh model CBOW dari Google Drive...'):
-            url = f"https://drive.google.com/file/d?id={drive_id}"
+            # PERBAIKAN: Gunakan format URL yang benar
+            url = f"https://drive.google.com/uc?id={drive_id}"
             gdown.download(url, filename, quiet=False)
     
     try:
+        # Coba memuat dengan berbagai encoding untuk handle numpy version issues
         with open(filename, 'rb') as f:
-            model = pickle.load(f)
+            # Coba beberapa metode untuk handle version mismatch
+            try:
+                model = pickle.load(f)
+            except ModuleNotFoundError as e:
+                # Handle numpy version issues
+                if "numpy" in str(e):
+                    st.warning("Ada masalah versi NumPy, mencoba alternatif...")
+                    # Coba dengan allow_pickle=True
+                    try:
+                        model = np.load(f, allow_pickle=True)
+                    except:
+                        # Coba metode lain
+                        from pickle import Unpickler
+                        model = Unpickler(f).load()
+                else:
+                    raise e
         return model
     except Exception as e:
         st.error(f"Error memuat model: {e}")
@@ -67,7 +85,7 @@ def cbow_page():
         st.subheader("📊 Tampilkan 5×10 Embedding Pertama")
         st.dataframe(df.iloc[:5, :10].style.format("{:.6f}"))
         
-        # Konversi ke CSV untuk download
+        # Konversi ke CSV para download
         csv = df.to_csv()
         
         st.download_button(
@@ -77,7 +95,26 @@ def cbow_page():
             mime="text/csv"
         )
     else:
-        st.error("Format model tidak dikenali. Pastikan model adalah Word2Vec gensim atau model Keras dengan embedding layer.")
+        # Coba format lain
+        try:
+            # Jika model adalah array numpy langsung
+            if isinstance(model, np.ndarray):
+                df = pd.DataFrame(model)
+                st.write(f"Ukuran embedding: {df.shape[0]} kata × {df.shape[1]} dimensi")
+                st.subheader("📊 Tampilkan 5×10 Embedding Pertama")
+                st.dataframe(df.iloc[:5, :10].style.format("{:.6f}"))
+                
+                csv = df.to_csv()
+                st.download_button(
+                    label="⬇️ Download Embedding sebagai CSV",
+                    data=csv,
+                    file_name="review_CBOW_embeddings.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.error(f"Format model tidak dikenali. Tipe: {type(model)}")
+        except Exception as e:
+            st.error(f"Tidak dapat memproses model: {e}")
 
 if __name__ == "__main__":
     st.set_page_config(page_title="CBOW Embedding Viewer", layout="wide", page_icon="📄")
