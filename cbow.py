@@ -11,7 +11,7 @@ def load_cbow_model():
     
     if not os.path.exists(filename):
         with st.spinner('Mengunduh model CBOW dari Google Drive...'):
-            url = f"https://drive.google.com/uc?id={drive_id}"
+            url = f"https://drive.google.com/file/d?id={drive_id}"
             gdown.download(url, filename, quiet=False)
     
     try:
