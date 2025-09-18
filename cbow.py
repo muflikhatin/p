@@ -1,24 +1,19 @@
 import streamlit as st
 import pandas as pd
 import os
-import gdown
 
 def cbow_page():
-    st.title("📄 Tampilkan Embedding dari Pickle (CBOW)")
+    st.title("📄 Tampilkan Embedding dari CSV")
 
-    # ID file dari Google Drive
-    file_id = "1no16BOGbgbgMWENU_ZHmka1rEIXUMJfJ"
-    filename = "review_CBOW.pkl"
-    url = f"https://drive.google.com/uc?id={file_id}"
+    filename = "review_CBOW_weights.csv"
 
-    # Jika file belum ada, download dulu
     if not os.path.exists(filename):
-        st.info("⬇️ Mengunduh file dari Google Drive...")
-        gdown.download(url, filename, quiet=False)
+        st.error(f"❌ File '{filename}' tidak ditemukan.")
+        st.info("Pastikan file .csv berada di direktori yang sama dengan script ini.")
+        return
 
     try:
-        # Load dari pickle (bukan CSV)
-        df = pd.read_pickle(filename)
+        df = pd.read_csv(filename, index_col=0)
 
         st.success(f"✅ Berhasil memuat '{filename}'")
         st.write(f"Ukuran data: {df.shape[0]} kata × {df.shape[1]} dimensi")
@@ -26,7 +21,6 @@ def cbow_page():
         st.subheader("📊 Tampilkan 5×10 Embedding Pertama")
         st.dataframe(df.iloc[:5, :10].style.format("{:.6f}"))
 
-        # Simpan ke CSV untuk bisa diunduh user
         st.download_button(
             label="⬇️ Download CSV",
             data=df.to_csv().encode("utf-8"),
@@ -35,8 +29,8 @@ def cbow_page():
         )
 
     except Exception as e:
-        st.error(f"❌ Gagal memuat file: {e}")
+        st.error(f"❌ Gagal memuat file CSV: {e}")
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="CBOW Embedding Viewer", layout="wide", page_icon="📄")
-    cbow_page()
+    st.set_page_config(page_title="CBOW CSV Viewer", layout="wide", page_icon="📄")
+    cbow_csv_viewer()
