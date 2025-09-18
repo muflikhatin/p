@@ -9,7 +9,6 @@ import streamlit as st
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import tokenizer_from_json
-import json
 
 # Set page config before anything else
 st.set_page_config(page_title="Doc Classifier", layout="wide")
@@ -19,44 +18,27 @@ warnings.filterwarnings('ignore')
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
 MODEL_PATH = "best_model_15epochs.h5"
-TOKENIZER_PATH = "tokenizer.json"  # Changed from .pkl to .json
+TOKENIZER_PATH = "tokenizer.pkl"
 MAX_SEQUENCE_LENGTH = 300
 CHUNK_SIZE = 500  # Number of documents to process at a time
 
-# Global variables to store error messages
-model_error = None
-tokenizer_error = None
-
-@st.cache_resource
+@st.cache(allow_output_mutation=True)
 def load_tokenizer(path=TOKENIZER_PATH):
-    global tokenizer_error
-    tokenizer_error = None
     try:
-        if not os.path.exists(path):
-            tokenizer_error = f"File tokenizer tidak ditemukan: {path}"
-            return None
-            
-        with open(path, 'r') as f:
-            tokenizer_data = json.load(f)
-        tokenizer = tokenizer_from_json(tokenizer_data)
+        with open(path, 'rb') as f:
+            tokenizer = pickle.load(f)
         return tokenizer
     except Exception as e:
-        tokenizer_error = f"Error loading tokenizer: {str(e)}"
+        st.error(f"Error loading tokenizer: {str(e)}")
         return None
 
-@st.cache_resource
+@st.cache(allow_output_mutation=True)
 def load_model(model_path=MODEL_PATH):
-    global model_error
-    model_error = None
     try:
-        if not os.path.exists(model_path):
-            model_error = f"File model tidak ditemukan: {model_path}"
-            return None
-            
         model = tf.keras.models.load_model(model_path)
         return model
     except Exception as e:
-        model_error = f"Error loading model: {str(e)}"
+        st.error(f"Error loading model: {str(e)}")
         return None
 
 def clean_text(text):
@@ -299,46 +281,14 @@ def predict_single_text(text, model, tokenizer):
     pred = model.predict(padded, verbose=0)[0]
     return CLASS_NAMES[np.argmax(pred)], np.max(pred), pred
 
-def bilstm_page():
+def bilstm10_page():
     st.title("📊 Document Classification (Large Files Support)")
-
-    # Add file upload section for model and tokenizer
-    st.sidebar.header("Model Configuration")
-    
-    # Option to upload model files
-    uploaded_model = st.sidebar.file_uploader("Upload Model (.h5 file)", type=['h5'])
-    uploaded_tokenizer = st.sidebar.file_uploader("Upload Tokenizer (.json file)", type=['json'])
-    
-    # Save uploaded files
-    if uploaded_model is not None:
-        with open(MODEL_PATH, "wb") as f:
-            f.write(uploaded_model.getvalue())
-        st.sidebar.success("Model file uploaded successfully!")
-        # Clear cache to reload model
-        load_model.clear()
-        
-    if uploaded_tokenizer is not None:
-        with open(TOKENIZER_PATH, "wb") as f:
-            f.write(uploaded_tokenizer.getvalue())
-        st.sidebar.success("Tokenizer file uploaded successfully!")
-        # Clear cache to reload tokenizer
-        load_tokenizer.clear()
 
     with st.spinner("Loading model and tokenizer..."):
         model = load_model()
         tokenizer = load_tokenizer()
-        
-        # Display error messages if any
-        if model_error:
-            st.error(model_error)
-            st.info("Please upload a model file using the uploader in the sidebar.")
-        if tokenizer_error:
-            st.error(tokenizer_error)
-            st.info("Please upload a tokenizer file using the uploader in the sidebar.")
-            
         if model is None or tokenizer is None:
-            st.warning("Model or tokenizer not loaded. Please upload the required files to continue.")
-            return
+            st.stop()
 
     mode = st.radio("Choose Mode", ["📄 Upload File", "🔍 Single Prediction"], horizontal=True)
 
@@ -398,4 +348,4 @@ def bilstm_page():
                     st.dataframe(pred_df.style.format({'Confidence': '{:.3f}'}))
 
 if __name__ == "__main__":
-    bilstm_page()
+    bilstm10_page()
