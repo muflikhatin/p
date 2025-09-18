@@ -1,36 +1,84 @@
 import streamlit as st
 import pandas as pd
 import os
+import gdown
+import pickle
+
+@st.cache_resource
+def load_cbow_model():
+    drive_id = "1no16BOGbgbgMWENU_ZHmka1rEIXUMJfJ"  # Ganti dengan ID file review_CBOW.pkl Anda
+    filename = "review_CBOW.pkl"
+    
+    if not os.path.exists(filename):
+        with st.spinner('Mengunduh model CBOW dari Google Drive...'):
+            url = f"https://drive.google.com/uc?id={drive_id}"
+            gdown.download(url, filename, quiet=False)
+    
+    try:
+        with open(filename, 'rb') as f:
+            model = pickle.load(f)
+        return model
+    except Exception as e:
+        st.error(f"Error memuat model: {e}")
+        return None
 
 def cbow_page():
-    st.title("📄 Tampilkan Embedding dari CSV")
+    st.title("📄 Tampilkan Embedding dari CBOW Model")
 
-    filename = "review_CBOW_weights.csv"
-
-    if not os.path.exists(filename):
-        st.error(f"❌ File '{filename}' tidak ditemukan.")
-        st.info("Pastikan file .csv berada di direktori yang sama dengan script ini.")
+    # Memuat model CBOW
+    model = load_cbow_model()
+    
+    if model is None:
+        st.error("❌ Gagal memuat model CBOW.")
+        st.info("Pastikan file 'review_CBOW.pkl' tersedia di Google Drive dengan ID yang benar.")
         return
-
-    try:
-        df = pd.read_csv(filename, index_col=0)
-
-        st.success(f"✅ Berhasil memuat '{filename}'")
-        st.write(f"Ukuran data: {df.shape[0]} kata × {df.shape[1]} dimensi")
-
+    
+    st.success("✅ Berhasil memuat model CBOW")
+    
+    # Cek jika model memiliki weights/embeddings
+    if hasattr(model, 'wv'):
+        # Jika menggunakan gensim Word2Vec
+        words = list(model.wv.key_to_index.keys())[:100]  # Ambil 100 kata pertama
+        vectors = [model.wv[word] for word in words]
+        df = pd.DataFrame(vectors, index=words)
+        
+        st.write(f"Ukuran embedding: {df.shape[0]} kata × {df.shape[1]} dimensi")
+        
         st.subheader("📊 Tampilkan 5×10 Embedding Pertama")
         st.dataframe(df.iloc[:5, :10].style.format("{:.6f}"))
-
+        
+        # Konversi ke CSV untuk download
+        csv = df.to_csv()
+        
         st.download_button(
-            label="⬇️ Download CSV",
-            data=df.to_csv().encode("utf-8"),
-            file_name="review_CBOW_weights_output.csv",
+            label="⬇️ Download Embedding sebagai CSV",
+            data=csv,
+            file_name="review_CBOW_embeddings.csv",
             mime="text/csv"
         )
-
-    except Exception as e:
-        st.error(f"❌ Gagal memuat file CSV: {e}")
+        
+    elif hasattr(model, 'get_weights'):
+        # Jika menggunakan Keras/TensorFlow model
+        embeddings = model.get_weights()[0]
+        df = pd.DataFrame(embeddings)
+        
+        st.write(f"Ukuran embedding: {df.shape[0]} kata × {df.shape[1]} dimensi")
+        
+        st.subheader("📊 Tampilkan 5×10 Embedding Pertama")
+        st.dataframe(df.iloc[:5, :10].style.format("{:.6f}"))
+        
+        # Konversi ke CSV untuk download
+        csv = df.to_csv()
+        
+        st.download_button(
+            label="⬇️ Download Embedding sebagai CSV",
+            data=csv,
+            file_name="review_CBOW_embeddings.csv",
+            mime="text/csv"
+        )
+    else:
+        st.error("Format model tidak dikenali. Pastikan model adalah Word2Vec gensim atau model Keras dengan embedding layer.")
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="CBOW CSV Viewer", layout="wide", page_icon="📄")
-    cbow_csv_viewer()
+    st.set_page_config(page_title="CBOW Embedding Viewer", layout="wide", page_icon="📄")
+    cbow_page()
