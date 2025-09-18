@@ -16,7 +16,11 @@ def load_cbow_model():
             url = f"https://drive.google.com/uc?id={drive_id}"
             try:
                 gdown.download(url, filename, quiet=False)
-                st.success("File berhasil diunduh!")
+                if os.path.exists(filename):
+                    st.success("File berhasil diunduh!")
+                else:
+                    st.error("File gagal diunduh. Pastikan ID benar dan file dapat diakses publik.")
+                    return None
             except Exception as e:
                 st.error(f"Gagal mengunduh file: {e}")
                 return None
@@ -27,15 +31,14 @@ def load_cbow_model():
             model = joblib.load(filename)
             st.success("Model berhasil dimuat dengan joblib!")
             return model
-        except:
-            # Jika joblib gagal, coba dengan pickle dengan handling khusus
-            st.info("Mencoba memuat dengan pickle...")
+        except Exception as e:
+            st.warning(f"Joblib gagal: {e}. Mencoba dengan pickle...")
             
-            # Baca file sebagai bytes
+            # Baca file sebagai binary
             with open(filename, 'rb') as f:
                 data = f.read()
             
-            # Perbaiki masalah kompatibilitas numpy._core
+            # Perbaiki masalah kompatibilitas numpy._core jika ada
             if b'numpy._core' in data:
                 st.warning("Memperbaiki kompatibilitas NumPy...")
                 data = data.replace(b'numpy._core', b'numpy.core')
@@ -47,6 +50,42 @@ def load_cbow_model():
             
     except Exception as e:
         st.error(f"Error memuat model: {str(e)}")
+        
+        # Coba metode alternatif untuk file yang korup atau format berbeda
+        try:
+            st.info("Mencoba metode alternatif...")
+            
+            # Coba load sebagai file numpy
+            try:
+                model = np.load(filename, allow_pickle=True)
+                st.success("Model berhasil dimuat sebagai file numpy!")
+                return model
+            except:
+                pass
+                
+            # Coba baca sebagai bytes dan cari format yang sesuai
+            with open(filename, 'rb') as f:
+                first_bytes = f.read(100)  # Baca 100 byte pertama
+                
+            # Cek jika ini adalah file gensim
+            if b'gensim' in first_bytes or b'word2vec' in first_bytes.lower():
+                st.info("File terdeteksi sebagai model gensim. Mencoba load dengan gensim...")
+                try:
+                    from gensim.models import Word2Vec, KeyedVectors
+                    model = Word2Vec.load(filename)
+                    st.success("Model berhasil dimuat dengan gensim!")
+                    return model
+                except:
+                    try:
+                        model = KeyedVectors.load(filename)
+                        st.success("Model berhasil dimuat sebagai KeyedVectors!")
+                        return model
+                    except:
+                        pass
+                        
+        except Exception as alt_e:
+            st.error(f"Metode alternatif juga gagal: {alt_e}")
+            
         return None
 
 def cbow_page():
@@ -69,8 +108,19 @@ def cbow_page():
         1. File tidak ditemukan di Google Drive
         2. Izin akses file tidak diatur ke 'Anyone with the link can view'
         3. Format file tidak kompatibel
-        4. Masalah versi library
+        4. File mungkin korup atau dalam format yang tidak didukung
         """)
+        
+        # Tampilkan informasi file jika ada
+        if os.path.exists("review_CBOW.pkl"):
+            file_size = os.path.getsize("review_CBOW.pkl")
+            st.write(f"📁 File ditemukan dengan ukuran: {file_size} bytes")
+            
+            # Baca beberapa byte pertama untuk analisis
+            with open("review_CBOW.pkl", 'rb') as f:
+                first_bytes = f.read(20)
+                st.write(f"🔍 Byte pertama: {first_bytes}")
+        
         return
     
     st.success("✅ Berhasil memuat model CBOW")
@@ -84,6 +134,13 @@ def cbow_page():
             st.info("Model terdeteksi sebagai gensim Word2Vec")
             words = list(model.wv.key_to_index.keys())[:100]  # Ambil 100 kata pertama
             vectors = [model.wv[word] for word in words]
+            df = pd.DataFrame(vectors, index=words)
+            
+        # Jika model adalah KeyedVectors (gensim)
+        elif hasattr(model, 'key_to_index'):
+            st.info("Model terdeteksi sebagai gensim KeyedVectors")
+            words = list(model.key_to_index.keys())[:100]
+            vectors = [model[word] for word in words]
             df = pd.DataFrame(vectors, index=words)
             
         # Jika model adalah Keras/TensorFlow
@@ -125,7 +182,7 @@ def cbow_page():
         
         # Pilihan untuk menampilkan lebih banyak data
         n_rows = st.slider("Jumlah baris yang ditampilkan", 5, 50, 10)
-        n_cols = st.slider("Jumlah kolom yang ditampilkan", 5, 20, 10)
+        n_cols = st.slider("Jumlah kolom yang ditampilkan", 5, min(20, df.shape[1]), 10)
         
         st.subheader(f"🔍 Preview Embedding ({n_rows} baris pertama, {n_cols} kolom pertama)")
         st.dataframe(df.iloc[:n_rows, :n_cols].style.format("{:.6f}"))
