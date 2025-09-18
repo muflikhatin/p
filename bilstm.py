@@ -348,4 +348,4 @@ def bilstm10_page():
                     st.dataframe(pred_df.style.format({'Confidence': '{:.3f}'}))
 
 if __name__ == "__main__":
-    bilstm10_page()
+    bilstm_page()
