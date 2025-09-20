@@ -24,7 +24,7 @@ Jinja2==3.1.2
 joblib==1.2.0
 jsonschema==4.17.0
 kiwisolver==1.4.4
-keras==2.15.0
+keras
 MarkupSafe==2.1.1
 matplotlib
 more-itertools==9.0.0
@@ -34,7 +34,7 @@ numpy # Updated to resolve the conflict
 packaging==21.3
 plotly==5.11.0
 plotly.express==0.4.1
-pandas==1.5.1
+pandas
 Pillow==9.3.0
 protobuf==3.20.3
 pyarrow==7.0.0  # Downgraded to resolve the conflict
@@ -81,5 +81,5 @@ beautifulsoup4>=4.12.2
 nltk==3.6.5
 wordcloud>=1.9.2
 yellowbrick>=1.5
-openpyxl==3.1.2
+openpyxl
 seaborn
