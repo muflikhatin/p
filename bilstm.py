@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 
 # Constants
 CLASS_NAMES = ['Travel', 'Edukasi', 'Sports', 'Politik', 'Health']
-MODEL_PATH = "best_model_15epochs.h5"
+MODEL_PATH = "bilstm_model_15epochs.h5"
 TOKENIZER_PATH = "tokenizer.pkl"
 MAX_SEQUENCE_LENGTH = 300
 CHUNK_SIZE = 500  # Number of documents to process at a time
