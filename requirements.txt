@@ -30,7 +30,7 @@ matplotlib
 more-itertools==9.0.0
 networkx==2.6.3
 nltk==3.6.5
-numpy # Updated to resolve the conflict
+numpy 
 packaging==21.3
 plotly==5.11.0
 plotly.express==0.4.1
