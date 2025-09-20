@@ -22,23 +22,30 @@ TOKENIZER_PATH = "tokenizer.pkl"
 MAX_SEQUENCE_LENGTH = 300
 CHUNK_SIZE = 500  # Number of documents to process at a time
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def load_tokenizer(path=TOKENIZER_PATH):
     try:
         with open(path, 'rb') as f:
             tokenizer = pickle.load(f)
         return tokenizer
     except Exception as e:
-        st.error(f"Error loading tokenizer: {str(e)}")
         return None
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def load_model(model_path=MODEL_PATH):
     try:
-        model = tf.keras.models.load_model(model_path)
+        # Coba load dengan berbagai opsi
+        try:
+            model = tf.keras.models.load_model(model_path)
+        except Exception as e:
+            # Coba dengan custom objects jika diperlukan
+            model = tf.keras.models.load_model(
+                model_path,
+                custom_objects=None,
+                compile=False
+            )
         return model
     except Exception as e:
-        st.error(f"Error loading model: {str(e)}")
         return None
 
 def clean_text(text):
@@ -57,7 +64,6 @@ def preprocess_text(text, tokenizer):
         padded = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH, padding='post')
         return padded
     except Exception as e:
-        st.warning(f"Preprocessing failed: {str(e)}")
         return None
 
 def map_category(kat):
@@ -82,7 +88,7 @@ def read_data_in_chunks(uploaded_file, tokenizer):
         
         if filename.endswith('.csv'):
             # Read CSV in chunks
-            chunks = pd.read_csv(uploaded_file, encoding='utf-8', on_bad_lines='skip', chunksize=CHUNK_SIZE)
+            chunks = pd.read_csv(uploaded_file, encoding='utf-8', on_bbad_lines='skip', chunksize=CHUNK_SIZE)
             total_chunks = sum(1 for _ in pd.read_csv(uploaded_file, encoding='utf-8', on_bad_lines='skip', chunksize=CHUNK_SIZE))
             
             for i, chunk in enumerate(chunks):
@@ -155,7 +161,6 @@ def process_chunk(chunk, tokenizer):
         return chunk
     
     except Exception as e:
-        st.warning(f"Error processing chunk: {str(e)}")
         return None
 
 def predict_in_batches(df, model):
@@ -287,7 +292,15 @@ def bilstm_page():
     with st.spinner("Loading model and tokenizer..."):
         model = load_model()
         tokenizer = load_tokenizer()
-        if model is None or tokenizer is None:
+        
+        # Pindahkan error handling ke sini
+        if model is None:
+            st.error("Error loading model. This might be due to version compatibility issues.")
+            st.info("Please ensure the model was created with a compatible TensorFlow version.")
+            st.stop()
+        
+        if tokenizer is None:
+            st.error("Error loading tokenizer. Tokenizer file might be missing or incompatible.")
             st.stop()
 
     mode = st.radio("Choose Mode", ["📄 Upload File", "🔍 Single Prediction"], horizontal=True)
