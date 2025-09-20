@@ -22,7 +22,7 @@ TOKENIZER_PATH = "tokenizer.pkl"
 MAX_SEQUENCE_LENGTH = 300
 CHUNK_SIZE = 500  # Number of documents to process at a time
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+@st.cache_resource
 def load_tokenizer(path=TOKENIZER_PATH):
     try:
         with open(path, 'rb') as f:
@@ -31,7 +31,7 @@ def load_tokenizer(path=TOKENIZER_PATH):
     except Exception as e:
         return None
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+@st.cache_resource
 def load_model(model_path=MODEL_PATH):
     try:
         # Coba load dengan berbagai opsi
@@ -88,7 +88,7 @@ def read_data_in_chunks(uploaded_file, tokenizer):
         
         if filename.endswith('.csv'):
             # Read CSV in chunks
-            chunks = pd.read_csv(uploaded_file, encoding='utf-8', on_bbad_lines='skip', chunksize=CHUNK_SIZE)
+            chunks = pd.read_csv(uploaded_file, encoding='utf-8', on_bad_lines='skip', chunksize=CHUNK_SIZE)
             total_chunks = sum(1 for _ in pd.read_csv(uploaded_file, encoding='utf-8', on_bad_lines='skip', chunksize=CHUNK_SIZE))
             
             for i, chunk in enumerate(chunks):
