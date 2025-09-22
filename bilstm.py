@@ -281,7 +281,7 @@ def predict_single_text(text, model, tokenizer):
     pred = model.predict(padded, verbose=0)[0]
     return CLASS_NAMES[np.argmax(pred)], np.max(pred), pred
 
-def bilstm10_page():
+def bilstm_page():
     st.title("📊 Document Classification (Large Files Support)")
 
     with st.spinner("Loading model and tokenizer..."):
@@ -348,4 +348,4 @@ def bilstm10_page():
                     st.dataframe(pred_df.style.format({'Confidence': '{:.3f}'}))
 
 if __name__ == "__main__":
-    bilstm10_page()
+    bilstm_page()
