@@ -13,7 +13,7 @@ def cbow_page():
         return
 
     try:
-        df = pd.read_csv(filename, index_col=0)
+        df = pd.read_pickle(filename)
 
         st.success(f"✅ Berhasil memuat '{filename}'")
         st.write(f"Ukuran data: {df.shape[0]} kata × {df.shape[1]} dimensi")
@@ -33,4 +33,4 @@ def cbow_page():
 
 if __name__ == "__main__":
     st.set_page_config(page_title="CBOW CSV Viewer", layout="wide", page_icon="📄")
-    cbow_csv_viewer()
+    cbow_page()
